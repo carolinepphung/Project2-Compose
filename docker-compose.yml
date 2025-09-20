@@ -1,51 +1,32 @@
-version: "3.8"
-
 services:
-  # Docker-in-Docker service: provides a Docker daemon Jenkins can use.
-  dind:
-    image: docker:24-dind
-    privileged: true                            # required for DinD to run
-    environment:
-      # disable automatic TLS cert generation so daemon listens on plain TCP (for lab use only)
-      - DOCKER_TLS_CERTDIR=
-      - DOCKER_HOST=tcp://0.0.0.0:2375
-    command: ["--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
-    volumes:
-      - docker_layer_cache:/var/lib/docker     # named volume for docker layer cache
-    networks:
-      - cicd-net
-
-  # Jenkins service
   jenkins:
-    # Official Jenkins LTS image
     image: jenkins/jenkins:lts
-    restart: unless-stopped
-    depends_on:
-      - dind
+    container_name: project2-jenkins
+    privileged: true
+    user: root
     ports:
-      - "8080:8080"       # Jenkins UI
-      - "50000:50000"     # Jenkins agent port
-    environment:
-      # Tell Jenkins how to reach the DinD daemon in the compose network
-      - DOCKER_HOST=tcp://dind:2375
-      # Optionally set admin and CI user details via env (read by the init groovy script)
-      - JENKINS_ADMIN_USER=admin
-      - JENKINS_ADMIN_PASS=admin_password_here
-      - JENKINS_CI_USER=ci-user
-      - JENKINS_CI_PASS=ci_user_password_here
+      - "8080:8080"
+      - "50000:50000"
     volumes:
-      - jenkins_home:/var/jenkins_home           # persistent Jenkins home
-      - ./init.groovy.d:/var/jenkins_home/init.groovy.d:ro
-      - docker_layer_cache:/var/lib/docker       # let Jenkins access layer cache for faster builds (optional)
+      - jenkins_home:/var/jenkins_home
+    environment:
+      DOCKER_HOST: "tcp://dind:2375"  # point to DIND container
     networks:
-      - cicd-net
+      - jenkins-net
 
-# Named volumes:
+  dind:
+    image: docker:dind
+    container_name: project2-dind
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    networks:
+      - jenkins-net
+
 volumes:
   jenkins_home:
-  docker_layer_cache:
 
 networks:
-  cicd-net:
+  jenkins-net:
     driver: bridge
 
