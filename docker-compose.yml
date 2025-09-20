@@ -1,32 +1,29 @@
+version: "3.8"
+
 services:
   jenkins:
     image: jenkins/jenkins:lts
-    container_name: project2-jenkins
-    privileged: true
-    user: root
+    container_name: jenkins
+    privileged: true                   # Required for Docker-in-Docker
+    user: root                         # Run as root to access Docker socket
     ports:
-      - "8080:8080"
+      - "8081:8080"
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock  # Mount host Docker
+      - /usr/bin/docker:/usr/bin/docker            # Docker CLI
     environment:
-      DOCKER_HOST: "tcp://dind:2375"  # point to DIND container
-    networks:
-      - jenkins-net
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
 
   dind:
-    image: docker:dind
-    container_name: project2-dind
+    image: docker:24.0.5-dind
+    container_name: dind
     privileged: true
-    environment:
-      DOCKER_TLS_CERTDIR: ""
-    networks:
-      - jenkins-net
+    volumes:
+      - docker_caches:/var/lib/docker
 
 volumes:
   jenkins_home:
-
-networks:
-  jenkins-net:
-    driver: bridge
+  docker_caches:
 
